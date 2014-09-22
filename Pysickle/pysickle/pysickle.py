@@ -407,6 +407,7 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
         ax.legend(["numSeq"], bbox_to_anchor=(1.05, 0.3), loc=2, borderaxespad=0.)
         ax = plt.subplot(3, 1, 3)
         scoring = (arr[:, 5]-arr[:, 4])*arr[:, 7]
+        #todo offset! x.0.fa
         try:
             maxIndex = scoring.argmax()
             with open(resout, 'w')as resouth:
