@@ -40,7 +40,7 @@ GAP = "-"
 
 
 class Alignment(object):
-    def __init__(self, id=None, fasta = None, members = []):
+    def __init__(self, id=None, fasta=None, members=[]):
         self.id = id
         self.fasta = fasta
         self.members = []
@@ -71,7 +71,7 @@ class Alignment(object):
     def getStatsNum(self):
         res = [len(self.matchPos), len(self.matchGapPos), len(self.mismatchPos), len(self)-len(self.gapPos), len(self.gapPos), len(self)]
         return res
-# scoring = (arr[:, 5]-arr[:, 4])*arr[:, 7]
+
     def attachSequences(self):
         fp = FastaParser()
         print("FASTA:", self.fasta)
@@ -335,9 +335,9 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
         iteration = 0
 
         fastabase = os.path.basename(fasta)
-        statsout = finaldir + os.sep + fastabase + "_seqstats.csv"
-        tabout = finaldir + os.sep+fastabase + "_iter.csv"
-        resout = finaldir + os.sep+fastabase + "_ranks.txt"
+        statsout = finaldir + os.sep + ".".join(fastabase.split(".")[0:-1]) + "_seqstats.csv"
+        tabout = finaldir + os.sep + ".".join(fastabase.split(".")[0:-1]) + "_iter.csv"
+        resout = finaldir + os.sep + ".".join(fastabase.split(".")[0:-1]) + "_ranks.txt"
         if logging:
             info = open(statsout, "w")
         iterTab = []
@@ -366,7 +366,7 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
             for k in toKeep:
                 seq = "".join([s for s in k.sequence if s != GAP])
                 res += (">{}\n{}\n".format(k.id, seq))
-            iterfile = tmpdir+os.sep+".".join(fastabase.split(".")[0:-1])+"."+str(iteration)
+            iterfile = tmpdir+os.sep+".".join(fastabase.split(".")[0:-1])+"_"+str(iteration)
 
             with open(iterfile+".fa", 'w') as out:
                 out.write(res)
@@ -442,7 +442,7 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
             ax.set_xlabel('iteration')
             plt.savefig(finaldir+os.sep+fastabase+'_iter.svg', bbox_inches='tight', ext="svg")
             plt.clf()
-            finalfa = tmpdir+os.sep+".".join(fastabase.split(".")[0:-1])+"."+str(maxIndex)+".fa"
+            finalfa = tmpdir+os.sep+".".join(fastabase.split(".")[0:-1])+"_"+str(maxIndex)+".fa"
             finalfabase = os.path.basename(finalfa)
             shutil.copy(finalfa, finaldir+os.sep+finalfabase)
         except ValueError as e:
