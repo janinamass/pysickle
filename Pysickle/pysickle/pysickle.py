@@ -440,7 +440,7 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
             plt.plot(arr[:, 6], scoring)
             ax.legend(["(length-gaps)*numSeq"], bbox_to_anchor=(1.03, 0.3), loc=2, borderaxespad=0.)
             ax.set_xlabel('iteration')
-            plt.savefig(finaldir+os.sep+fastabase+'_iter.svg', bbox_inches='tight', ext="svg")
+            plt.savefig(finaldir+os.sep+".".join(fastabase.split(".")[0:-1])+'_iter.svg', bbox_inches='tight', ext="svg")
             plt.clf()
             finalfa = tmpdir+os.sep+".".join(fastabase.split(".")[0:-1])+"_"+str(maxIndex)+".fa"
             finalfabase = os.path.basename(finalfa)
