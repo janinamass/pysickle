@@ -68,6 +68,10 @@ class Alignment(object):
         res += "{},{},{},{},{},{}".format(len(self.matchPos), len(self.matchGapPos), len(self.mismatchPos), len(self)-len(self.gapPos), len(self.gapPos), len(self))
         return res
 
+    def getStatsNum(self):
+        res = [len(self.matchPos), len(self.matchGapPos), len(self.mismatchPos), len(self)-len(self.gapPos), len(self.gapPos), len(self)]
+        return res
+# scoring = (arr[:, 5]-arr[:, 4])*arr[:, 7]
     def attachSequences(self):
         fp = FastaParser()
         print("FASTA:", self.fasta)
@@ -337,7 +341,8 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
         if logging:
             info = open(statsout, "w")
         iterTab = []
-        headerTab = ["matches", "matchesWithGaps", "mismatches", "noGap", "gaps", "length", "iteration", "numSeq"]
+        headerTab = ["matches", "matchesWithGaps", "mismatches", "noGap", "gaps", "length", "iteration", "numSeq",
+                     '(length-gaps)*numSeq']
         alignmentstats = []
         newAlignment = Alignment(fasta=fasta)
         #sanity check
@@ -370,11 +375,16 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
                 for m in newAlignment.members:
                     info.write(m.summary()+"\n")
             #log
+
             alignmentstats.append(newAlignment.getStats().split(","))
-            iterTab.append((",".join(x for y in alignmentstats for x in y))+","+str(iteration)+","+str(len(newAlignment.members)))
+            tmp_stats_num = newAlignment.getStatsNum()
+            print(tmp_stats_num)
+            iterTab.append((",".join(x for y in alignmentstats for x in y))+","+str(iteration) +
+                           "," + str(len(newAlignment.members)) + "," +str((tmp_stats_num[5]-tmp_stats_num[4])*len(newAlignment.members)))
             alignmentstats = []
             if msa_tool == "mafft":
-                proc = subprocess.Popen(["mafft", "--auto", iterfile+".fa"], stdout=open(iterfile+"_aln.fa", 'w'), bufsize=1)
+                proc = subprocess.Popen(["mafft", "--auto", iterfile+".fa"], stderr=subprocess.PIPE,  stdout=open(iterfile+"_aln.fa", 'w'), bufsize=1)
+                proc.stderr.read()
                 proc.communicate()
                 newAlignment = Alignment(id=iterfile, fasta=iterfile+"_aln.fa")
             #TODO extend
@@ -387,13 +397,13 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
             taboutf.write("\n")
             taboutf.write("\n".join(iterTab))
         for i in iterTab:
-            row = [int(j) for j in i.split(",")]
+            row = [int(j) for j in i.split(",")[:-1]]
             arr = numpy.vstack((arr, numpy.array(row)))
         #delete row filled with zeros
         arr = numpy.delete(arr, 0, 0)
         ###########
         LOCK.acquire()
-        plt.figure(1, figsize=(8.5, 11), dpi=120)
+        plt.figure(1)
         plt.suptitle(fastabase, fontsize=12)
         ax = plt.subplot(3, 1, 1)
         #
