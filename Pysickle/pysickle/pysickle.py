@@ -172,7 +172,7 @@ class Sequence():
     def summary(self):
         s = ""
         s += self.id
-        s += "insertionsCaused:{},uniqueInsertionsCaused:{}, gapsCaused:{}, uniqueGapsCaused:{}, penalty:{}, dynPenalty:{}".format(len(self.insertionsCaused), len(self.uniqueInsertionsCaused), len(self.gapsCaused), len(self.uniqueGapsCaused), self.penalty, self.dynamicPenalty)
+        s += " insertionsCaused:{},uniqueInsertionsCaused:{}, gapsCaused:{}, uniqueGapsCaused:{}, penalty:{}, dynPenalty:{}".format(len(self.insertionsCaused), len(self.uniqueInsertionsCaused), len(self.gapsCaused), len(self.uniqueGapsCaused), self.penalty, self.dynamicPenalty)
         return s
 
     def getCustomPenalty(self,gapPenalty, uniqueGapPenalty, insertionPenalty , uniqueInsertionPenalty, mismatchPenalty, matchReward):
@@ -343,11 +343,10 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
         #sanity check
         if len(newAlignment.members) < 3:
             raise TooFewSequencesException("Need more than 2 sequences in alignment: {}\n".format(newAlignment.fasta))
-        if not max_iter or  (max_iter > len(newAlignment.members)-2):
+        if not max_iter or (max_iter > len(newAlignment.members)-2):
           max_iter = len(newAlignment.members)-2
-        print("# max iterations:{}".format(str(max_iter)))
+        print("# max iterations: {}".format(str(max_iter)))
         while iteration < max_iter:
-            iteration += 1
             toKeep = getSeqToKeep(alignment=newAlignment, mode=mode,
                                   gap_penalty=gap_penalty,
                                   unique_gap_penalty=unique_gap_penalty,
@@ -372,19 +371,21 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
                     info.write(m.summary()+"\n")
             #log
             alignmentstats.append(newAlignment.getStats().split(","))
-            iterTab.append((",".join(x for y in alignmentstats for x in y))+","+ str(iteration)+","+str(len(newAlignment.members)))
+            iterTab.append((",".join(x for y in alignmentstats for x in y))+","+str(iteration)+","+str(len(newAlignment.members)))
             alignmentstats = []
             if msa_tool == "mafft":
                 proc = subprocess.Popen(["mafft", "--auto", iterfile+".fa"], stdout=open(iterfile+"_aln.fa", 'w'), bufsize=1)
                 proc.communicate()
                 newAlignment = Alignment(id=iterfile, fasta=iterfile+"_aln.fa")
             #TODO extend
+            iteration += 1
         if logging:
+            info.write("\n")
             info.close()
         with open(tabout, 'w') as taboutf:
             taboutf.write(",".join(headerTab))
             taboutf.write("\n")
-            taboutf.write("\n".join(iterTab ))
+            taboutf.write("\n".join(iterTab))
         for i in iterTab:
             row = [int(j) for j in i.split(",")]
             arr = numpy.vstack((arr, numpy.array(row)))
@@ -392,31 +393,44 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
         arr = numpy.delete(arr, 0, 0)
         ###########
         LOCK.acquire()
-        plt.figure(1,figsize=(8, 6), dpi=80)
+        plt.figure(1, figsize=(8.5, 11), dpi=120)
         plt.suptitle(fastabase, fontsize=12)
         ax = plt.subplot(3, 1, 1)
+        #
+        plt.xticks(numpy.arange(min(arr[:, 6]), max(arr[:, 6])+1, 2.0))
+        #
         for i, l in zip([0, 1, 2, 3, 4, 5, 6, 7], ['match', 'matchWithGap', 'mismatch', 'nogap',
                                                    'gap', 'length', 'iteration', 'numSeq']):
             if not i in [6, 7]:
                 plt.plot(arr[:, 6], arr[:, i], label=l)
         handles, labels = ax.get_legend_handles_labels()
-        ax.legend(handles, labels, bbox_to_anchor=(1.05, 1), loc=2, borderaxespad=0.)
+        ax.legend(handles, labels, bbox_to_anchor=(1.03, 1), loc=2, borderaxespad=0.)
         ax = plt.subplot(3, 1, 2)
+        #
+        plt.xticks(numpy.arange(min(arr[:, 6]), max(arr[:, 6])+1, 2.0))
+        #
         plt.plot(arr[:, 6], arr[:, 7])
         ax.set_ylabel('count')
-        ax.legend(["numSeq"], bbox_to_anchor=(1.05, 0.3), loc=2, borderaxespad=0.)
+         #
+        #plt.yticks(numpy.arange(min(arr[:, 5]), max(arr[:, 5])+1, 1.0))
+        #
+        ax.legend(["numSeq"], bbox_to_anchor=(1.03, 0.3), loc=2, borderaxespad=0.)
         ax = plt.subplot(3, 1, 3)
+        #
+        plt.xticks(numpy.arange(min(arr[:, 6]), max(arr[:, 6])+1, 2.0))
+        #
         scoring = (arr[:, 5]-arr[:, 4])*arr[:, 7]
-        #todo offset! x.0.fa
+
         try:
             maxIndex = scoring.argmax()
+            #todo inconsistent if equally bad
             with open(resout, 'w')as resouth:
                 resouth.write("# Ranking: {}\n".format(scoring[:].argsort()[::-1]))
                 resouth.write("# Best set: {}".format(str(maxIndex)))
             plt.plot(arr[:, 6], scoring)
-            ax.legend(["(length-gaps)*numSeq"], bbox_to_anchor=(1.05, 0.3), loc=2, borderaxespad=0.)
+            ax.legend(["(length-gaps)*numSeq"], bbox_to_anchor=(1.03, 0.3), loc=2, borderaxespad=0.)
             ax.set_xlabel('iteration')
-            plt.savefig(finaldir+os.sep+fastabase+'_iter.png', bbox_inches='tight')
+            plt.savefig(finaldir+os.sep+fastabase+'_iter.svg', bbox_inches='tight', ext="svg")
             plt.clf()
             finalfa = tmpdir+os.sep+".".join(fastabase.split(".")[0:-1])+"."+str(maxIndex)+".fa"
             finalfabase = os.path.basename(finalfa)
