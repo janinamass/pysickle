@@ -35,13 +35,15 @@ from distutils import spawn
 # Fr 16 Mai 2014 14:25:46 CEST
 # [JMass]
 #########################
-global GAP
+
+
 GAP = "-"
 
 
 class Alignment(object):
-    def __init__(self, id=None, fasta=None, members=[]):
-        self.id = id
+    """ Store alignment information """
+    def __init__(self, name=None, fasta=None):
+        self.id = name
         self.fasta = fasta
         self.members = []
         self.gapPos = []
@@ -65,11 +67,18 @@ class Alignment(object):
 
     def getStats(self):
         res = ""
-        res += "{},{},{},{},{},{}".format(len(self.matchPos), len(self.matchGapPos), len(self.mismatchPos), len(self)-len(self.gapPos), len(self.gapPos), len(self))
+        res += "{},{},{},{},{},{}".format(len(self.matchPos),
+                                          len(self.matchGapPos),
+                                          len(self.mismatchPos),
+                                          len(self)-len(self.gapPos),
+                                          len(self.gapPos),
+                                          len(self))
         return res
 
     def getStatsNum(self):
-        res = [len(self.matchPos), len(self.matchGapPos), len(self.mismatchPos), len(self)-len(self.gapPos), len(self.gapPos), len(self)]
+        res = [len(self.matchPos), len(self.matchGapPos),
+               len(self.mismatchPos), len(self)-len(self.gapPos),
+               len(self.gapPos), len(self)]
         return res
 
     def attachSequences(self):
@@ -82,21 +91,24 @@ class Alignment(object):
     #todo ignore hanging ends
     def calcNumbers(self):
         for i in range(0, len(self)):
-            curpos = [m.sequence[i] for m in self.members]
+            curpos = [m.sequence[i] for m in self.members] #one column
             if GAP in curpos:
                 #dynamic penalty:
                 tmp = "".join(curpos)
                 gappyness = tmp.count(GAP)/float(len(self.members))
-                half = len(self.members)/2.0
+                half = 0.5
+                print("half", half, len(tmp), len(self.members), 1-gappyness, gappyness)
                 if gappyness > half:
                     toPunish = [m for m in self.members if m.sequence[i] != GAP]
                     for t in toPunish:
                         t.dynamicPenalty += gappyness
+                        print(t.dynamicPenalty, t)
                 elif gappyness < half:
                     #punish gappers
                     toPunish = [m for m in self.members if m.sequence[i] == GAP]
                     for t in toPunish:
                         t.dynamicPenalty += 1-gappyness
+                        print("T", t, t.dynamicPenalty)
                 else:
                     pass
                 #/dyn penalty
@@ -118,7 +130,7 @@ class Alignment(object):
 
             nongap = [c for c in curpos if c != GAP]
             cpset = set(curpos)
-            if len(cpset) >1 and GAP not in cpset:
+            if len(cpset) > 1 and GAP not in cpset:
                 self.mismatchPos.append(i)
                 for m in self.members:
                     m.mismatchShared.append(i)
@@ -126,12 +138,11 @@ class Alignment(object):
                 self.matchPos.append(i)
                 for m in self.members:
                     m.matchShared.append(i)
-            elif len(cpset) == 2 and GAP in cpset and len(nongap)>2:
+            elif len(cpset) == 2 and GAP in cpset and len(nongap) > 2:
                 self.matchGapPos.append(i)
 
     def showAlignment(self, numbers=False):
         res = []
-        mmPos = []
         alignmentLength = len(self.members[0].sequence)
         for i in range(0, alignmentLength):
             curpos = [m.sequence[i] for m in self.members]
@@ -143,11 +154,11 @@ class Alignment(object):
 
 
 class Sequence():
-    def __init__(self, id = "", sequence = None, isForeground = False):
+    def __init__(self, id="", sequence=None, isForeground=False):
         self.id = id
         self.sequence = sequence
         self.isForeground = isForeground
-        self.insertionsCaused  = [] #positions
+        self.insertionsCaused = [] #positions
         self.uniqueInsertionsCaused = []
         self.gapsCaused = []#positions
         self.uniqueGapsCaused = []
@@ -159,34 +170,55 @@ class Sequence():
         # < n/2 gaps (@site): penalize gaps by inserts/n
         self.dynamicPenalty = 0
 
-    def setForeground(self, bool = True):
+    def setForeground(self, bool=True):
         self.isForeground = bool
 
     def __repr__(self):
         return "Sequence: {}".format(self.id)
 
     @property
-    def penalty(self, uniqueGapPenalty=10, uniqueInsertPenalty=10, gapPenalty = 1, insertPenalty =1 ):
-        self._penalty = sum([len(self.insertionsCaused)*insertPenalty,
-                             len(self.uniqueInsertionsCaused)*uniqueInsertPenalty,
-                             len(self.gapsCaused)*gapPenalty,
-                             len(self.uniqueGapsCaused)*uniqueGapPenalty])
+    def penalty(self,
+                uniqueGapPenalty=10,
+                uniqueInsertPenalty=10,
+                gapPenalty=1,
+                insertPenalty=1):
+
+        self._penalty = sum(
+            [len(self.insertionsCaused)*insertPenalty,
+             len(self.uniqueInsertionsCaused)*uniqueInsertPenalty,
+             len(self.gapsCaused)*gapPenalty,
+             len(self.uniqueGapsCaused)*uniqueGapPenalty]
+        )
         return self._penalty
 
     def summary(self):
         s = ""
         s += self.id
-        s += " insertionsCaused:{},uniqueInsertionsCaused:{}, gapsCaused:{}, uniqueGapsCaused:{}, penalty:{}, dynPenalty:{}".format(len(self.insertionsCaused), len(self.uniqueInsertionsCaused), len(self.gapsCaused), len(self.uniqueGapsCaused), self.penalty, self.dynamicPenalty)
+        s += " insertionsCaused:{},uniqueInsertionsCaused:{}," \
+             "gapsCaused:{}, uniqueGapsCaused:{}, penalty:{}, " \
+             "dynPenalty:{}".format(len(self.insertionsCaused),
+                                    len(self.uniqueInsertionsCaused),
+                                    len(self.gapsCaused),
+                                    len(self.uniqueGapsCaused),
+                                    self.penalty,
+                                    self.dynamicPenalty)
         return s
 
-    def getCustomPenalty(self,gapPenalty, uniqueGapPenalty, insertionPenalty , uniqueInsertionPenalty, mismatchPenalty, matchReward):
-            res = (len(self.gapsCaused)-len(self.uniqueGapsCaused)) * gapPenalty \
-                + len(self.uniqueGapsCaused) * uniqueGapPenalty\
-                + (len(self.insertionsCaused) - len(self.uniqueInsertionsCaused)) * insertionPenalty\
-                + len(self.uniqueInsertionsCaused) * uniqueInsertionPenalty\
-                + len(self.mismatchShared) * mismatchPenalty\
-                + len(self.matchShared) * matchReward
-            return res
+    def getCustomPenalty(self,
+                         gapPenalty,
+                         uniqueGapPenalty,
+                         insertionPenalty,
+                         uniqueInsertionPenalty,
+                         mismatchPenalty,
+                         matchReward):
+        res = (len(self.gapsCaused)-len(self.uniqueGapsCaused))*gapPenalty\
+            + len(self.uniqueGapsCaused) * uniqueGapPenalty\
+            + (len(self.insertionsCaused) - len(self.uniqueInsertionsCaused))\
+            * insertionPenalty\
+            + len(self.uniqueInsertionsCaused) * uniqueInsertionPenalty\
+            + len(self.mismatchShared) * mismatchPenalty\
+            + len(self.matchShared) * matchReward
+        return res
 
 
 class FastaParser(object):
@@ -225,7 +257,7 @@ class FastaParser(object):
 
 #TODO documentation
 def usage():
-    print ("""
+    print("""
     ######################################
     # pysickle.py v0.1.1
     ######################################
@@ -270,12 +302,13 @@ def checkPath(progname):
         path = spawn.find_executable(progname)
         print("Found {} in {}\n".format(progname, path))
     if not path:
-        raise Exception("Could not find {} on your system! Exiting. Available options:{}\n".format(progname, ",".join(avail)))
+        raise Exception("Could not find {} on your system!"
+                        " Exiting. Available options:{}\n".format(progname, ",".join(avail)))
         sys.exit(127)
 
 
 def checkMode(mode):
-    avail = ["sites", "gaps", "ugaps","insertions", "uinsertions", "uinsertionsgaps", "custom"]
+    avail = ["sites", "gaps", "ugaps", "insertions", "uinsertions", "uinsertionsgaps", "custom"]
     if mode not in avail:
         raise Exception("Mode {} not available. Only {} allowed\n".format(mode, ",".join(avail)))
 
@@ -292,42 +325,72 @@ def adjustDir(dirname, mode):
     return dirname+"_"+abbr
 
 
-def getSeqToKeep(alignment, mode, gap_penalty, unique_gap_penalty,  insertion_penalty, unique_insertion_penalty , mismatch_penalty, match_reward):
+def getSeqToKeep(alignment, mode, gap_penalty, unique_gap_penalty, insertion_penalty,
+                 unique_insertion_penalty, mismatch_penalty, match_reward):
     if mode == "sites":
         toKeep = removeDynamicPenalty(alignment)
     elif mode == "gaps":
-        toKeep = removeCustomPenalty(alignment, gapPenalty=1, uniqueGapPenalty=1, insertionPenalty=0, uniqueInsertionPenalty=0, mismatchPenalty=0, matchReward=0)
+        toKeep = removeCustomPenalty(alignment,
+                                     gapPenalty=1,
+                                     uniqueGapPenalty=1,
+                                     insertionPenalty=0,
+                                     uniqueInsertionPenalty=0,
+                                     mismatchPenalty=0,
+                                     matchReward=0)
         if not toKeep:
-                removeDynamicPenalty(alignment)
+            removeDynamicPenalty(alignment)
     elif mode == "ugaps":
         toKeep = removeMaxUniqueGappers(alignment)
         if not toKeep:
             toKeep = removeDynamicPenalty(alignment)
         return(toKeep)
     elif mode == "insertions":
-        toKeep = removeCustomPenalty(alignment, gapPenalty=0, uniqueGapPenalty=0, insertionPenalty=1, uniqueInsertionPenalty=1, mismatchPenalty=0, matchReward=0)
+        toKeep = removeCustomPenalty(alignment,
+                                     gapPenalty=0,
+                                     uniqueGapPenalty=0,
+                                     insertionPenalty=1,
+                                     uniqueInsertionPenalty=1,
+                                     mismatchPenalty=0,
+                                     matchReward=0)
         if not toKeep:
-                removeDynamicPenalty(alignment)
+            removeDynamicPenalty(alignment)
     elif mode == "uinsertions":
         toKeep = removeMaxUniqueInserters(alignment)
         if not toKeep:
-                removeDynamicPenalty(alignment)
+            removeDynamicPenalty(alignment)
     elif mode == "uinsertionsgaps":
         toKeep = removeMaxUniqueInsertsPlusGaps(alignment)
         if not toKeep:
-                removeDynamicPenalty(alignment)
+            removeDynamicPenalty(alignment)
     elif mode == "custom":
-        toKeep = removeCustomPenalty(alignment, gapPenalty=gap_penalty, uniqueGapPenalty=unique_gap_penalty, insertionPenalty=insertion_penalty, uniqueInsertionPenalty=unique_insertion_penalty, mismatchPenalty=mismatch_penalty, matchReward=match_reward)
+        toKeep = removeCustomPenalty(alignment,
+                                     gapPenalty=gap_penalty,
+                                     uniqueGapPenalty=unique_gap_penalty,
+                                     insertionPenalty=insertion_penalty,
+                                     uniqueInsertionPenalty=unique_insertion_penalty,
+                                     mismatchPenalty=mismatch_penalty,
+                                     matchReward=match_reward)
         if not toKeep:
-                removeDynamicPenalty(alignment)
+            removeDynamicPenalty(alignment)
     else:
         raise Exception("Sorry, sth went wrong at getSeqToKeep\n")
     return toKeep
 
 
-def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=None, mode=None, logging=None,
-              gap_penalty=None, unique_gap_penalty=None, insertion_penalty=None, unique_insertion_penalty=None,
-              mismatch_penalty=None, match_reward=None):
+def schoenify(fasta=None,
+              max_iter=None,
+              finaldir=None,
+              tmpdir=None,
+              msa_tool=None,
+              mode=None,
+              logging=None,
+              gap_penalty=None,
+              unique_gap_penalty=None,
+              insertion_penalty=None,
+              unique_insertion_penalty=None,
+              mismatch_penalty=None,
+              match_reward=None):
+
     if not fasta:
         raise Exception("Schoenify: Need alignment in fasta format.")
     else:
@@ -341,16 +404,25 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
         if logging:
             info = open(statsout, "w")
         iterTab = []
-        headerTab = ["matches", "matchesWithGaps", "mismatches", "noGap", "gaps", "length", "iteration", "numSeq",
+        headerTab = ["matches",
+                     "matchesWithGaps",
+                     "mismatches",
+                     "noGap",
+                     "gaps",
+                     "length",
+                     "iteration",
+                     "numSeq",
                      '(length-gaps)*numSeq']
+
         alignmentstats = []
         newAlignment = Alignment(fasta=fasta)
         #sanity check
         if len(newAlignment.members) < 3:
             raise TooFewSequencesException("Need more than 2 sequences in alignment: {}\n".format(newAlignment.fasta))
         if not max_iter or (max_iter > len(newAlignment.members)-2):
-          max_iter = len(newAlignment.members)-2
+            max_iter = len(newAlignment.members)-2
         print("# max iterations: {}".format(str(max_iter)))
+        #todo: score original alignment, and save to table
         while iteration < max_iter:
             toKeep = getSeqToKeep(alignment=newAlignment, mode=mode,
                                   gap_penalty=gap_penalty,
@@ -380,13 +452,17 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
             tmp_stats_num = newAlignment.getStatsNum()
             print(tmp_stats_num)
             iterTab.append((",".join(x for y in alignmentstats for x in y))+","+str(iteration) +
-                           "," + str(len(newAlignment.members)) + "," +str((tmp_stats_num[5]-tmp_stats_num[4])*len(newAlignment.members)))
+                           "," + str(len(newAlignment.members)) + "," +
+                           str((tmp_stats_num[5]-tmp_stats_num[4])*len(newAlignment.members)))
             alignmentstats = []
             if msa_tool == "mafft":
-                proc = subprocess.Popen(["mafft", "--auto", iterfile+".fa"], stderr=subprocess.PIPE,  stdout=open(iterfile+"_aln.fa", 'w'), bufsize=1)
+                proc = subprocess.Popen(["mafft", "--auto", iterfile+".fa"],
+                                        stderr=subprocess.PIPE,
+                                        stdout=open(iterfile+"_aln.fa", 'w'),
+                                        bufsize=1)
                 proc.stderr.read()
                 proc.communicate()
-                newAlignment = Alignment(id=iterfile, fasta=iterfile+"_aln.fa")
+                newAlignment = Alignment(name=iterfile, fasta=iterfile+"_aln.fa")
             #TODO extend
             iteration += 1
         if logging:
@@ -407,7 +483,11 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
         plt.suptitle(fastabase, fontsize=12)
         ax = plt.subplot(3, 1, 1)
         #
-        plt.xticks(numpy.arange(min(arr[:, 6]), max(arr[:, 6])+1, 2.0))
+
+        try:
+            plt.xticks(numpy.arange(min(arr[:, 6]), max(arr[:, 6])+1, 2.0))
+        except ValueError as e:
+            sys.stderr.write(str(e))
         #
         for i, l in zip([0, 1, 2, 3, 4, 5, 6, 7], ['match', 'matchWithGap', 'mismatch', 'nogap',
                                                    'gap', 'length', 'iteration', 'numSeq']):
@@ -438,7 +518,10 @@ def schoenify(fasta=None, max_iter=None, finaldir=None, tmpdir=None, msa_tool=No
                 resouth.write("# Ranking: {}\n".format(scoring[:].argsort()[::-1]))
                 resouth.write("# Best set: {}".format(str(maxIndex)))
             plt.plot(arr[:, 6], scoring)
-            ax.legend(["(length-gaps)*numSeq"], bbox_to_anchor=(1.03, 0.3), loc=2, borderaxespad=0.)
+            ax.legend(["(length-gaps)*numSeq"],
+                      bbox_to_anchor=(1.03, 0.3),
+                      loc=2, borderaxespad=0.)
+
             ax.set_xlabel('iteration')
             plt.savefig(finaldir+os.sep+".".join(fastabase.split(".")[0:-1])+'_iter.svg', bbox_inches='tight', ext="svg")
             plt.clf()
@@ -455,7 +538,7 @@ def removeMaxUniqueGappers(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    s = alignment.showAlignment(numbers = True)
+    s = alignment.showAlignment(numbers=True)
     mxUniqueGaps = max([len(k.uniqueGapsCaused) for k in alignment.members])
     keepers = [k for k in alignment.members if len(k.uniqueGapsCaused) < mxUniqueGaps]
     return keepers
@@ -465,7 +548,7 @@ def removeMaxUniqueInserters(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    s = alignment.showAlignment(numbers = True)
+    s = alignment.showAlignment(numbers=True)
     mxUniqueIns = max([len(k.uniqueInsertionsCaused) for k in alignment.members])
     keepers = [k for k in alignment.members if len(k.uniqueInsertionsCaused) < mxUniqueIns]
     return keepers
@@ -479,13 +562,36 @@ def removeMaxPenalty(alignment):
     keepers = [k for k in alignment.members if k.penalty < mx]
     return keepers
 
-def removeCustomPenalty(alignment, gapPenalty=None, uniqueGapPenalty=None, insertionPenalty=None, uniqueInsertionPenalty=None, mismatchPenalty=None, matchReward = None):
+def removeCustomPenalty(alignment,
+                        gapPenalty=None,
+                        uniqueGapPenalty=None,
+                        insertionPenalty=None,
+                        uniqueInsertionPenalty=None,
+                        mismatchPenalty=None,
+                        matchReward=None):
+
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
-    mx = max([k.getCustomPenalty( gapPenalty =gapPenalty, uniqueGapPenalty=uniqueGapPenalty, insertionPenalty=insertionPenalty, uniqueInsertionPenalty=uniqueInsertionPenalty,mismatchPenalty=mismatchPenalty, matchReward = matchReward) for k in alignment.members])
-    print("MAX",mx)
-    print([k.getCustomPenalty(gapPenalty=gapPenalty, uniqueGapPenalty=uniqueGapPenalty, insertionPenalty=insertionPenalty,                           uniqueInsertionPenalty=uniqueInsertionPenalty ,mismatchPenalty=mismatchPenalty, matchReward = matchReward) for k in alignment.members ])
-    keepers = [k for k in alignment.members if k.getCustomPenalty(gapPenalty=gapPenalty, uniqueGapPenalty=uniqueGapPenalty, insertionPenalty=insertionPenalty, uniqueInsertionPenalty=uniqueInsertionPenalty ,mismatchPenalty=mismatchPenalty, matchReward = matchReward) < mx]
+    mx = max([k.getCustomPenalty(gapPenalty=gapPenalty,
+                                 uniqueGapPenalty=uniqueGapPenalty,
+                                 insertionPenalty=insertionPenalty,
+                                 uniqueInsertionPenalty=uniqueInsertionPenalty,
+                                 mismatchPenalty=mismatchPenalty,
+                                 matchReward=matchReward) for k in alignment.members])
+    print([k.getCustomPenalty(gapPenalty=gapPenalty,
+                              uniqueGapPenalty=uniqueGapPenalty,
+                              insertionPenalty=insertionPenalty,
+                              uniqueInsertionPenalty=uniqueInsertionPenalty,
+                              mismatchPenalty=mismatchPenalty,
+                              matchReward=matchReward)
+           for k in alignment.members])
+
+    keepers = [k for k in alignment.members if k.getCustomPenalty(gapPenalty=gapPenalty,
+                                                                  uniqueGapPenalty=uniqueGapPenalty,
+                                                                  insertionPenalty=insertionPenalty,
+                                                                  uniqueInsertionPenalty=uniqueInsertionPenalty,
+                                                                  mismatchPenalty=mismatchPenalty,
+                                                                  matchReward=matchReward) < mx]
     return keepers
 
 
@@ -510,7 +616,10 @@ def removeMaxUniqueInsertsPlusGaps(alignment):
 
 
 class SchoenifyThread(threading.Thread):
-    def __init__(self, fasta, max_iter, finaldir,tmpdir, msa_tool, mode, logging, gap_penalty, unique_gap_penalty, insertion_penalty, unique_insertion_penalty, mismatch_penalty , match_reward):
+    def __init__(self, fasta, max_iter, finaldir, tmpdir, msa_tool,
+                 mode, logging, gap_penalty, unique_gap_penalty,
+                 insertion_penalty, unique_insertion_penalty,
+                 mismatch_penalty, match_reward):
         super(SchoenifyThread, self).__init__()
         self.fasta = fasta
         self.max_iter = max_iter
@@ -546,11 +655,11 @@ class SchoenifyThread(threading.Thread):
 def getFastaList(dir=None, suffix=None):
     for f in os.listdir(dir):
         if f.endswith(suffix):
-            yield(os.sep.join([dir, f]))
+            yield os.sep.join([dir, f])
 
 
 def main():
-    fastalist  = []
+    fastalist = []
     fastadir = None
     suffix = None
     outdir = None
@@ -571,25 +680,27 @@ def main():
     match_reward = -10.0
 
     try:
-        opts, args = getopt.gnu_getopt(sys.argv[1:], "f:F:s:o:i:a:n:m:g:G:j:J:M:r:lh", ["fasta=",
-                                                                                      "fasta_dir=",
-                                                                                      "suffix=",
-                                                                                      "outdir=",
-                                                                                      "max_iteration=",
-                                                                                      "msa_tool=",
-                                                                                      "num_threads=",
-                                                                                      "mode=",
-                                                                                      "gap_penalty",
-                                                                                      "unique_gap_penalty",
-                                                                                      "insertion_penalty=",
-                                                                                      "unique_insertion_penalty=",
-                                                                                      "mismatch_penalty=",
-                                                                                      "match_reward=",
-                                                                                      "log",
-                                                                                      "help"])
+        opts, args = getopt.gnu_getopt(sys.argv[1:],
+                                       "f:F:s:o:i:a:n:m:g:G:j:J:M:r:lh",
+                                       ["fasta=",
+                                        "fasta_dir=",
+                                        "suffix=",
+                                        "outdir=",
+                                        "max_iteration=",
+                                        "msa_tool=",
+                                        "num_threads=",
+                                        "mode=",
+                                        "gap_penalty",
+                                        "unique_gap_penalty",
+                                        "insertion_penalty=",
+                                        "unique_insertion_penalty=",
+                                        "mismatch_penalty=",
+                                        "match_reward=",
+                                        "log",
+                                        "help"])
     except getopt.GetoptError as err:
-            print(str(err))
-            usage()
+        print(str(err))
+        usage()
     for o, a in opts:
         if o in ("-f", "--fasta"):
             fastalist = a.split(",")
@@ -658,7 +769,19 @@ def main():
             print(f)
             fastalist.append(f)
     for fasta in fastalist:
-        SchoenifyThread(fasta, max_iter, finaldir, tmpdir, msa_tool, mode, logging, gap_penalty, unique_gap_penalty, insertion_penalty, unique_insertion_penalty, mismatch_penalty , match_reward).start()
+        SchoenifyThread(fasta,
+                        max_iter,
+                        finaldir,
+                        tmpdir,
+                        msa_tool,
+                        mode,
+                        logging,
+                        gap_penalty,
+                        unique_gap_penalty,
+                        insertion_penalty,
+                        unique_insertion_penalty,
+                        mismatch_penalty,
+                        match_reward).start()
 #############################################
 LOCK = threading.Lock()
 SEMAPHORE = threading.BoundedSemaphore()
