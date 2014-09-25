@@ -191,17 +191,26 @@ class Sequence():
         )
         return self._penalty
 
-    def summary(self):
+    def summary(self, noheaders=False):
         s = ""
-        s += self.id
-        s += " insertionsCaused:{},uniqueInsertionsCaused:{}," \
-             "gapsCaused:{}, uniqueGapsCaused:{}, penalty:{}, " \
-             "dynPenalty:{}".format(len(self.insertionsCaused),
-                                    len(self.uniqueInsertionsCaused),
-                                    len(self.gapsCaused),
-                                    len(self.uniqueGapsCaused),
-                                    self.penalty,
-                                    self.dynamicPenalty)
+        if noheaders:
+           s +="{},{},{},{},{},{},{}".format(self.id,
+                                        len(self.insertionsCaused),
+                                        len(self.uniqueInsertionsCaused),
+                                        len(self.gapsCaused),
+                                        len(self.uniqueGapsCaused),
+                                        self.penalty,
+                                        self.dynamicPenalty)
+        else:
+            s += self.id
+            s += ",insertionsCaused:{},uniqueInsertionsCaused:{}," \
+                 "gapsCaused:{},uniqueGapsCaused:{},penalty:{}," \
+                 "dynPenalty:{}".format(len(self.insertionsCaused),
+                                        len(self.uniqueInsertionsCaused),
+                                        len(self.gapsCaused),
+                                        len(self.uniqueGapsCaused),
+                                        self.penalty,
+                                        self.dynamicPenalty)
         return s
 
     def getCustomPenalty(self,
@@ -403,6 +412,13 @@ def schoenify(fasta=None,
         resout = finaldir + os.sep + ".".join(fastabase.split(".")[0:-1]) + "_ranks.txt"
         if logging:
             info = open(statsout, "w")
+            info.write("{},{},{},{},{},{},{}\n".format("id",
+                                                      "insertionsCaused",
+                                                      "uniqueInsertionsCaused",
+                                                      "gapsCaused",
+                                                      "uniqueGapsCaused",
+                                                      "penalty",
+                                                      "dynPenalty"))
         iterTab = []
         headerTab = ["matches",
                      "matchesWithGaps",
@@ -445,7 +461,7 @@ def schoenify(fasta=None,
             #log
             if logging:
                 for m in newAlignment.members:
-                    info.write(m.summary()+"\n")
+                    info.write(m.summary(noheaders=True)+"\n")
             #log
 
             alignmentstats.append(newAlignment.getStats().split(","))
