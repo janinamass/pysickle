@@ -329,7 +329,9 @@ def adjustDir(dirname, mode):
 
 def getSeqToKeep(alignment, mode, gap_penalty, unique_gap_penalty, insertion_penalty,
                  unique_insertion_penalty, mismatch_penalty, match_reward):
-    if mode == "sites":
+    if mode == "keepall":
+        toKeep = [k for k in alignment.members]
+    elif mode == "sites":
         toKeep = removeDynamicPenalty(alignment)
     elif mode == "gaps":
         toKeep = removeCustomPenalty(alignment,
@@ -403,7 +405,9 @@ def schoenify(fasta=None,
         statsout = finaldir + os.sep + ".".join(fastabase.split(".")[0:-1]) + "_seqstats.csv"
         tabout = finaldir + os.sep + ".".join(fastabase.split(".")[0:-1]) + "_iter.csv"
         resout = finaldir + os.sep + ".".join(fastabase.split(".")[0:-1]) + "_ranks.txt"
+
         if logging:
+            #write header
             info = open(statsout, "w")
             info.write("{},{},{},{},{},{},{}\n".format("id",
                                                       "insertionsCaused",
@@ -433,13 +437,24 @@ def schoenify(fasta=None,
         print("# max iterations: {}".format(str(max_iter)))
         #todo: score original alignment, and save to table
         while iteration < max_iter:
-            toKeep = getSeqToKeep(alignment=newAlignment, mode=mode,
-                                  gap_penalty=gap_penalty,
-                                  unique_gap_penalty=unique_gap_penalty,
-                                  insertion_penalty=insertion_penalty,
-                                  unique_insertion_penalty=unique_insertion_penalty,
-                                  mismatch_penalty=mismatch_penalty,
-                                  match_reward=match_reward)
+            if iteration == 0:
+                #keep all on iteration 0
+                toKeep=getSeqToKeep(alignment=newAlignment,
+                                    mode="keepall",
+                                    gap_penalty=gap_penalty,
+                                    unique_gap_penalty=unique_gap_penalty,
+                                    insertion_penalty=insertion_penalty,
+                                    unique_insertion_penalty=unique_insertion_penalty,
+                                    mismatch_penalty=mismatch_penalty,
+                                    match_reward=match_reward)
+            else:
+                toKeep = getSeqToKeep(alignment=newAlignment, mode=mode,
+                                      gap_penalty=gap_penalty,
+                                      unique_gap_penalty=unique_gap_penalty,
+                                      insertion_penalty=insertion_penalty,
+                                      unique_insertion_penalty=unique_insertion_penalty,
+                                      mismatch_penalty=mismatch_penalty,
+                                      match_reward=match_reward)
             print("# iteration: {}/{} \n".format(iteration, max_iter))
             if len(toKeep) < 2:
                 break
