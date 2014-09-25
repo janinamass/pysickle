@@ -30,15 +30,8 @@ import matplotlib.pyplot as plt
 
 import numpy
 from distutils import spawn
-#########################
-# last update:
-# Fr 16 Mai 2014 14:25:46 CEST
-# [JMass]
-#########################
-
 
 GAP = "-"
-
 
 class Alignment(object):
     """ Store alignment information """
@@ -194,7 +187,7 @@ class Sequence():
     def summary(self, noheaders=False):
         s = ""
         if noheaders:
-           s +="{},{},{},{},{},{},{}".format(self.id,
+            s += "{},{},{},{},{},{},{}".format(self.id,
                                         len(self.insertionsCaused),
                                         len(self.uniqueInsertionsCaused),
                                         len(self.gapsCaused),
@@ -285,7 +278,7 @@ def usage():
         -m, --mode=MODE         set strategy to remove outlier sequences [default: "Sites"]
                                 available modes (not case sensitive):
                                     "Sites", "Gaps", "uGaps","Insertions",
-                                    "uInsertions","uInstertionsGaps", "custom"
+                                    "uInsertions","uInsertionsGaps", "custom"
         -l, --log       write logfile
         -h, --help      prints this
 
@@ -327,7 +320,7 @@ class TooFewSequencesException(Exception):
 
 
 def adjustDir(dirname, mode):
-    if mode == "unisertionsgaps":
+    if mode == "uinsertionsgaps":
         abbr = "uig"
     else:
         abbr = mode[0:2]
