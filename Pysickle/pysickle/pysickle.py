@@ -32,6 +32,10 @@ import numpy
 from distutils import spawn
 
 GAP = "-"
+LOCK = threading.Lock()
+SEMAPHORE = threading.BoundedSemaphore()
+PREFIXOUT = "ps_out"
+PREFIXTMP = "ps_tmp"
 
 class Alignment(object):
     """ Store alignment information """
@@ -89,19 +93,16 @@ class Alignment(object):
                 #dynamic penalty:
                 tmp = "".join(curpos)
                 gappyness = tmp.count(GAP)/float(len(self.members))
-                half = 0.5
-                print("half", half, len(tmp), len(self.members), 1-gappyness, gappyness)
-                if gappyness > half:
+                if gappyness > 0.5:
                     toPunish = [m for m in self.members if m.sequence[i] != GAP]
                     for t in toPunish:
                         t.dynamicPenalty += gappyness
                         print(t.dynamicPenalty, t)
-                elif gappyness < half:
+                elif gappyness < 0.5:
                     #punish gappers
                     toPunish = [m for m in self.members if m.sequence[i] == GAP]
                     for t in toPunish:
                         t.dynamicPenalty += 1-gappyness
-                        print("T", t, t.dynamicPenalty)
                 else:
                     pass
                 #/dyn penalty
@@ -146,7 +147,7 @@ class Alignment(object):
         return "\n".join(res)
 
 
-class Sequence():
+class Sequence(object):
     def __init__(self, id="", sequence=None, isForeground=False):
         self.id = id
         self.sequence = sequence
@@ -562,7 +563,7 @@ def removeMaxUniqueGappers(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    s = alignment.showAlignment(numbers=True)
+    #s = alignment.showAlignment(numbers=True)
     mxUniqueGaps = max([len(k.uniqueGapsCaused) for k in alignment.members])
     keepers = [k for k in alignment.members if len(k.uniqueGapsCaused) < mxUniqueGaps]
     return keepers
@@ -572,7 +573,7 @@ def removeMaxUniqueInserters(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    s = alignment.showAlignment(numbers=True)
+    #s = alignment.showAlignment(numbers=True)
     mxUniqueIns = max([len(k.uniqueInsertionsCaused) for k in alignment.members])
     keepers = [k for k in alignment.members if len(k.uniqueInsertionsCaused) < mxUniqueIns]
     return keepers
@@ -581,7 +582,7 @@ def removeMaxPenalty(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    s = alignment.showAlignment(numbers=True)
+    #s = alignment.showAlignment(numbers=True)
     mx = max([k.penalty for k in alignment.members])
     keepers = [k for k in alignment.members if k.penalty < mx]
     return keepers
@@ -623,7 +624,7 @@ def removeDynamicPenalty(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    s = alignment.showAlignment(numbers=True)
+    #s = alignment.showAlignment(numbers=True)
     mx = max([k.dynamicPenalty for k in alignment.members])
     keepers = [k for k in alignment.members if k.dynamicPenalty < mx]
     return keepers
@@ -633,7 +634,7 @@ def removeMaxUniqueInsertsPlusGaps(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    s = alignment.showAlignment(numbers=True)
+    #s = alignment.showAlignment(numbers=True)
     mxUniqueIns = max([len(k.uniqueInsertionsCaused)+len(k.uniqueGapsCaused) for k in alignment.members])
     keepers = [k for k in alignment.members if (len(k.uniqueInsertionsCaused)+len(k.uniqueGapsCaused)) < mxUniqueIns]
     return keepers
@@ -676,10 +677,10 @@ class SchoenifyThread(threading.Thread):
         SEMAPHORE.release()
 
 
-def getFastaList(dir=None, suffix=None):
-    for f in os.listdir(dir):
-        if f.endswith(suffix):
-            yield os.sep.join([dir, f])
+def get_fasta_list(directory=None, suffix=None):
+    for file in os.listdir(directory):
+        if file.endswith(suffix):
+            yield os.sep.join([directory, file])
 
 
 def main():
@@ -766,16 +767,16 @@ def main():
 
     if not outdir:
         if fastadir:
-            finaldir = fastadir + os.sep + "ps_out"
-            tmpdir = fastadir + os.sep + "ps_tmp"
+            finaldir = fastadir + os.sep + PREFIXOUT
+            tmpdir = fastadir + os.sep + PREFIXTMP
         else:
-            finaldir = os.path.dirname(fastalist[0])+os.sep+"ps_out"
-            tmpdir = os.path.dirname(fastalist[0])+os.sep+"ps_tmp"
+            finaldir = os.path.dirname(fastalist[0])+os.sep+PREFIXOUT
+            tmpdir = os.path.dirname(fastalist[0])+os.sep+PREFIXTMP
     else:
         if not os.path.exists(outdir):
             os.mkdir(outdir)
-        finaldir = outdir + os.sep + "ps_out"
-        tmpdir = outdir + os.sep + "ps_tmp"
+        finaldir = outdir + os.sep + PREFIXOUT
+        tmpdir = outdir + os.sep + PREFIXTMP
     #
     checkPath(progname=msa_tool)
     checkMode(mode=mode)
@@ -789,9 +790,9 @@ def main():
         os.mkdir(tmpdir)
     if fastadir:
         print(suffix)
-        for f in getFastaList(fastadir, suffix):
-            print(f)
-            fastalist.append(f)
+        for fastafile in get_fasta_list(fastadir, suffix):
+            print(fastafile)
+            fastalist.append(fastafile)
     for fasta in fastalist:
         SchoenifyThread(fasta,
                         max_iter,
@@ -807,8 +808,7 @@ def main():
                         mismatch_penalty,
                         match_reward).start()
 #############################################
-LOCK = threading.Lock()
-SEMAPHORE = threading.BoundedSemaphore()
+
 ##########
 if __name__ == "__main__":
     main()
