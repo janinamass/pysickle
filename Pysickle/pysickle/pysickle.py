@@ -24,6 +24,7 @@ import threading
 import os
 import shutil
 import matplotlib
+import math
 #don't use X:
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -63,6 +64,7 @@ class Alignment(object):
             return 0
 
     def get_stats(self):
+        """Return information about alignment (str, 6 comma-separated col)"""
         res = ""
         res += "{},{},{},{},{},{}".format(len(self.match_pos),
                                           len(self.match_gap_pos),
@@ -73,12 +75,14 @@ class Alignment(object):
         return res
 
     def get_stats_num(self):
+        """Return information about alignment as list of ints """
         res = [len(self.match_pos), len(self.match_gap_pos),
                len(self.mismatch_pos), len(self)-len(self.gap_pos),
                len(self.gap_pos), len(self)]
         return res
 
     def attach_sequences(self):
+        """Read fasta file, create Sequence objects and attach them to self.members"""
         print("FASTA:", self.fasta)
         for seq in FastaParser.read_fasta(self.fasta):
             new_seq = Sequence(name=seq[0], sequence=seq[1])
@@ -86,8 +90,14 @@ class Alignment(object):
 
     #todo ignore hanging ends
     def calc_numbers(self):
+        """For each position in the alignment, calculate
+         the ratio of gaps vs non-gaps. If the majority is gaps,
+         insertions are penalized for each sequence. Similarly,
+         if the majority is non-gaps, gaps are penalized.
+         At 50 percent gaps and non-gaps, there is no penalty added.
+        """
         for i in range(0, len(self)):
-            curpos = [m.sequence[i] for m in self.members] #one column
+            curpos = [m.sequence[i] for m in self.members]
             if GAP in curpos:
                 #dynamic penalty:
                 tmp = "".join(curpos)
@@ -111,14 +121,14 @@ class Alignment(object):
                     seq.gaps_caused.append(i)
                 #unique gaps caused:
                 if len(gappers) == 1:
-                    seq.unique_gaps_caused.append(i)
+                    gappers[0].unique_gaps_caused.append(i)
                 #insertions
                 inserters = [m for m in self.members if m.sequence[i] != GAP]
                 for seq in inserters:
                     seq.insertions_caused.append(i)
                 #unique insertions caused:
                 if len(inserters) == 1:
-                    seq.unique_insertions_caused.append(i)
+                    inserters[0].unique_insertions_caused.append(i)
 
             nongap = [c for c in curpos if c != GAP]
             cpset = set(curpos)
@@ -134,12 +144,19 @@ class Alignment(object):
                 self.match_gap_pos.append(i)
 
     def show_alignment(self, numbers=False):
+        """Return column-wise string representation of alignment"""
         res = []
         alignment_length = len(self.members[0].sequence)
         for i in range(0, alignment_length):
             curpos = [m.sequence[i] for m in self.members]
             if numbers:
-                res.append(str(i)+" "+" ".join(curpos))
+                try:
+                    res.append(" "*(int(math.log(alignment_length, 10))-int(math.log(i, 10)))+str(i)+" "+" ".join(curpos))
+                except ValueError as err:
+                    if i == 0:
+                        res.append(" "*int(math.log(alignment_length, 10))+str(i)+" "+" ".join(curpos))
+                    else:
+                        sys.stderr.write(err)
             else:
                 res.append(" ".join(curpos))
         return "\n".join(res)
@@ -280,6 +297,7 @@ def usage():
                                     "Sites", "Gaps", "uGaps","Insertions",
                                     "uInsertions","uInsertionsGaps", "custom"
         -l, --log       write logfile
+        -p, --print_alignment   print column-wise alignment to command line
         -h, --help      prints this
 
     only for mode "custom":
@@ -389,6 +407,7 @@ def schoenify(fasta=None,
               msa_tool=None,
               mode=None,
               logging=None,
+              print_alignment = None,
               gap_penalty=None,
               unique_gap_penalty=None,
               insertion_penalty=None,
@@ -490,6 +509,8 @@ def schoenify(fasta=None,
                 proc.stderr.read()
                 proc.communicate()
                 alignment = Alignment(name=iterfile, fasta=iterfile+"_aln.fa")
+                if print_alignment:
+                    print(alignment.show_alignment(numbers=True))
             #TODO extend
             iteration += 1
         if logging:
@@ -554,7 +575,7 @@ def schoenify(fasta=None,
                         ".".join(fastabase.split(".")[0:-1]) +
                         '_iter.svg', bbox_inches='tight', ext="svg")
             plt.clf()
-            finalfa = tmpdir+os.sep+".".join(fastabase.split(".")[0:-1])+"_"+str(max_index)+".fa"
+            finalfa = tmpdir+os.sep+".".join(fastabase.split(".")[0:-1]) + "_"+str(max_index)+".fa"
             finalfabase = os.path.basename(finalfa)
             shutil.copy(finalfa, finaldir+os.sep+finalfabase)
         except ValueError as e:
@@ -567,7 +588,6 @@ def rm_max_unique_gaps(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    #s = alignment.show_alignment(numbers=True)
     mx_unique_gaps = max([len(k.unique_gaps_caused) for k in alignment.members])
     keepers = [k for k in alignment.members if len(k.unique_gaps_caused) < mx_unique_gaps]
     return keepers
@@ -577,7 +597,6 @@ def rm_max_unique_inserters(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    #s = alignment.show_alignment(numbers=True)
     mx_unique_ins = max([len(k.unique_insertions_caused) for k in alignment.members])
     keepers = [k for k in alignment.members if len(k.unique_insertions_caused) < mx_unique_ins]
     return keepers
@@ -587,7 +606,6 @@ def rm_max_penalty(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    #s = alignment.show_alignment(numbers=True)
     mx_penalty = max([k.penalty for k in alignment.members])
     keepers = [k for k in alignment.members if k.penalty < mx_penalty]
     return keepers
@@ -625,7 +643,6 @@ def rm_dyn_penalty(alignment):
     if not isinstance(alignment, Alignment):
         raise Exception("Must be of class Alignment")
 
-    #s = alignment.show_alignment(numbers=True)
     mx_penalty = max([k.dynamic_penalty for k in alignment.members])
     keepers = [k for k in alignment.members if k.dynamic_penalty < mx_penalty]
     return keepers
@@ -646,7 +663,7 @@ def rm_max_unique_inserts_plus_gaps(alignment):
 
 class SchoenifyThread(threading.Thread):
     def __init__(self, fasta, max_iter, finaldir, tmpdir, msa_tool,
-                 mode, logging, gap_penalty, unique_gap_penalty,
+                 mode, logging, print_alignment, gap_penalty, unique_gap_penalty,
                  insertion_penalty, unique_insertion_penalty,
                  mismatch_penalty, match_reward):
         super(SchoenifyThread, self).__init__()
@@ -657,6 +674,7 @@ class SchoenifyThread(threading.Thread):
         self.msa_tool = msa_tool
         self.mode = mode
         self.logging = logging
+        self.print_alignment = print_alignment
     #custom
         self.gap_penalty = gap_penalty
         self.unique_gap_penalty = unique_gap_penalty
@@ -670,7 +688,8 @@ class SchoenifyThread(threading.Thread):
         try:
             schoenify(fasta=self.fasta, max_iter=self.max_iter, finaldir=self.finaldir,
                       tmpdir=self.tmpdir, msa_tool=self.msa_tool, mode=self.mode,
-                      logging=self.logging, gap_penalty=self.gap_penalty,
+                      logging=self.logging, print_alignment=self.print_alignment,
+                      gap_penalty=self.gap_penalty,
                       unique_gap_penalty=self.unique_gap_penalty,
                       insertion_penalty=self.insertion_penalty,
                       unique_insertion_penalty=self.unique_insertion_penalty,
@@ -700,7 +719,7 @@ def main():
     num_threads = 1
     mode = "sites"
     logging = False
-
+    print_alignment = False
   #custom penalty:
     gap_penalty = 1.0
     unique_gap_penalty = 10.0
@@ -711,7 +730,7 @@ def main():
 
     try:
         opts, args = getopt.gnu_getopt(sys.argv[1:],
-                                       "f:F:s:o:i:a:n:m:g:G:j:J:M:r:lh",
+                                       "f:F:s:o:i:a:n:m:g:G:j:J:M:r:lhp",
                                        ["fasta=",
                                         "fasta_dir=",
                                         "suffix=",
@@ -727,7 +746,8 @@ def main():
                                         "mismatch_penalty=",
                                         "match_reward=",
                                         "log",
-                                        "help"])
+                                        "help",
+                                        "print_alignment"])
     except getopt.GetoptError as err:
         print(str(err))
         usage()
@@ -752,6 +772,8 @@ def main():
             mode = a.lower()
         elif o in ("-l", "--log"):
             logging = True
+        elif o in ("-p", "--print_alignment"):
+            print_alignment = True
     #only for mode "custom":
         elif o in ("-g", "--gap_penalty"):
             gap_penalty = float(a)
@@ -806,6 +828,7 @@ def main():
                         msa_tool,
                         mode,
                         logging,
+                        print_alignment,
                         gap_penalty,
                         unique_gap_penalty,
                         insertion_penalty,
